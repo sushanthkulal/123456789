@@ -12,7 +12,36 @@ export const UnifiedLoginForm: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [credentials, setCredentials] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    role: ''
+  });
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [success, setSuccess] = useState('');
   const navigate = useNavigate();
+
+  const roleOptions = [
+    { value: 'doctor', label: 'Doctor' },
+    { value: 'patient', label: 'Patient' },
+    { value: 'hospital', label: 'Hospital' },
+    { value: 'pharmacist', label: 'Pharmacist' },
+    { value: 'lab_technician', label: 'Lab Technician' }
+  ];
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setCredentials(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const toggleMode = () => {
+    setIsSignUp(!isSignUp);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,10 +145,8 @@ export const UnifiedLoginForm: React.FC = () => {
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>
-      </Card>
-    </div>
-  );
-};
+
+          <FormField
             label="Email Address"
             name="email"
             type="email"
