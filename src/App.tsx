@@ -31,7 +31,18 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; allowedRoles: string
   children, 
   allowedRoles 
 }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   
   if (!isAuthenticated || !user) {
     return <Navigate to="/" replace />;
