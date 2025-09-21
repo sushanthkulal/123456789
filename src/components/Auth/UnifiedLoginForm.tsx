@@ -1,138 +1,70 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { Button } from '../Common/Button';
 import { FormField } from '../Common/FormField';
 import { Card } from '../Common/Card';
 import { Building2, Eye, EyeOff } from 'lucide-react';
 
 export const UnifiedLoginForm: React.FC = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [credentials, setCredentials] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    name: '',
-    role: ''
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const { signIn, signUp, loading } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
-  const roleOptions = [
-    'Patient',
-    'Doctor',
-    'Receptionist',
-    'Pharmacist',
-    'Lab Technician'
-  ];
-
-  const roleConfig = {
-    'Doctor': {
-      dashboardPath: '/doctor/dashboard',
-      role: 'doctor' as const
-    },
-    'Patient': {
-      dashboardPath: '/patient/dashboard',
-      role: 'patient' as const
-    },
-    'Receptionist': {
-      dashboardPath: '/hospital/dashboard',
-      role: 'hospital' as const
-    },
-    'Pharmacist': {
-      dashboardPath: '/pharmacy/dashboard',
-      role: 'pharmacist' as const
-    },
-    'Lab Technician': {
-      dashboardPath: '/lab/dashboard',
-      role: 'lab_technician' as const
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     setError('');
-    setSuccess('');
-    
-    if (!credentials.role) {
-      setError('Please select a role');
-      return;
-    }
-    
-    if (isSignUp) {
-      // Validation for sign up
-      if (credentials.password !== credentials.confirmPassword) {
-        setError('Passwords do not match');
-        return;
-      }
-      
-      if (credentials.password.length < 6) {
-        setError('Password must be at least 6 characters long');
-        return;
-      }
-      
-      if (!credentials.name.trim()) {
-        setError('Name is required');
-        return;
-      }
-      
-      const config = roleConfig[credentials.role as keyof typeof roleConfig];
-      const result = await signUp(credentials.email, credentials.password, {
-        name: credentials.name,
-        role: config.role
-      });
-      
-      if (result.success) {
-        setSuccess('Account created successfully! Please check your email to verify your account.');
-        setIsSignUp(false);
-        setCredentials({
-          email: credentials.email,
-          password: '',
-          confirmPassword: '',
-          name: '',
-          role: credentials.role
-        });
-      } else {
-        setError(result.error || 'Failed to create account');
-      }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(error.message);
     } else {
-      // Sign in
-      const result = await signIn(credentials.email, credentials.password);
+      console.log("Signed in:", data);
       
-      if (result.success) {
-        const config = roleConfig[credentials.role as keyof typeof roleConfig];
-        navigate(config.dashboardPath);
+      // Get user profile to determine role and redirect
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .single();
+      
+      if (profile) {
+        // Redirect based on role
+        switch (profile.role) {
+          case 'doctor':
+            navigate('/doctor/dashboard');
+            break;
+          case 'patient':
+            navigate('/patient/dashboard');
+            break;
+          case 'hospital':
+            navigate('/hospital/dashboard');
+            break;
+          case 'pharmacist':
+            navigate('/pharmacy/dashboard');
+            break;
+          case 'lab_technician':
+            navigate('/lab/dashboard');
+            break;
+          default:
+            navigate('/patient/dashboard');
+        }
       } else {
-        setError(result.error || 'Failed to sign in');
+        // Default redirect if no profile found
+        navigate('/patient/dashboard');
       }
     }
+    setLoading(false);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setError('');
-    setSuccess('');
-    setCredentials({
-      ...credentials,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const toggleMode = () => {
-    setIsSignUp(!isSignUp);
-    setError('');
-    setSuccess('');
-    setCredentials({
-      email: '',
-      password: '',
-      confirmPassword: '',
-      name: '',
-      role: ''
-    });
-  };
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -142,24 +74,52 @@ export const UnifiedLoginForm: React.FC = () => {
           </div>
           <h1 className="text-2xl font-medium text-black mb-2">Hospital Management System</h1>
           <p className="text-gray-600">
-            {isSignUp ? 'Create your account' : 'Sign in to your account'}
+            Sign in to your account
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isSignUp && (
-            <FormField
-              label="Full Name"
-              name="name"
-              type="text"
-              placeholder="Enter your full name"
-              value={credentials.name}
-              onChange={handleChange}
+        <form onSubmit={handleLogin} className="space-y-4">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            required
+          />
+
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500"
               required
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3 text-gray-500 hover:text-gray-700"
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <p className="text-red-800 text-sm">{error}</p>
+            </div>
           )}
 
-          <FormField
+          <Button type="submit" fullWidth className="mt-6" loading={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
+          </Button>
+        </form>
+      </Card>
+    </div>
+  );
+};
             label="Email Address"
             name="email"
             type="email"
